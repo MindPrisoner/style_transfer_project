@@ -32,11 +32,12 @@ def main():
 
     optimizer = optim.Adam([generated], lr=0.02)
 
-    content_weight = 1e4
-    style_weight = 1e5
-    tv_weight = 1e-6
-    for step in range(300):
+    content_weight = 1e2
+    style_weight = 1e7
+    tv_weight = 0.0
+    for step in range(800):
         gen_features = model(generated)
+
 
         content_loss = torch.mean(
             (gen_features["conv4_2"] - content_features["conv4_2"]) ** 2
@@ -48,7 +49,8 @@ def main():
             style_gram = style_grams[layer]
             style_loss += torch.mean((gen_gram - style_gram) ** 2)
 
-        tv_loss = total_variation_loss(generated)
+        # tv_loss = total_variation_loss(generated)
+        tv_loss = torch.tensor(0.0, device=device)
         # total_loss = content_weight * content_loss + style_weight * style_loss
         total_loss = (
                 content_weight * content_loss
@@ -65,7 +67,7 @@ def main():
         with torch.no_grad():
             generated.clamp_(-3, 3)
 
-        if step % 50 == 0:
+        if step % 100 == 0:
             # print(
             #     f"Step [{step}/300], "
             #     f"Content Loss: {content_loss.item():.6f}, "
@@ -73,12 +75,13 @@ def main():
             #     f"Total Loss: {total_loss.item():.6f}"
             # )
             print(
-                f"Step [{step}/300], "
+                f"Step [{step}/800], "
                 f"Content Loss: {content_loss.item():.6f}, "
                 f"Style Loss: {style_loss.item():.6f}, "
                 f"TV Loss: {tv_loss.item():.6f}, "
                 f"Total Loss: {total_loss.item():.6f}"
             )
+            save_image(generated, f"outputs/step_{step}.jpg")
 
     save_image(generated, output_path)
     print(f"Stylized image saved to {output_path}")
