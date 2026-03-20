@@ -11,7 +11,7 @@ def main():
 
     content_path = "assets/content/content.jpg"
     style_path = "assets/style/style.jpg"
-    output_path = "outputs/stylized.jpg"
+    output_path = "outputs/stylized_version2.jpg"
 
     os.makedirs("outputs", exist_ok=True)
 
@@ -33,8 +33,8 @@ def main():
     optimizer = optim.Adam([generated], lr=0.02)
 
     content_weight = 1e4
-    style_weight = 1e2
-
+    style_weight = 1e5
+    tv_weight = 1e-6
     for step in range(300):
         gen_features = model(generated)
 
@@ -48,25 +48,45 @@ def main():
             style_gram = style_grams[layer]
             style_loss += torch.mean((gen_gram - style_gram) ** 2)
 
-        total_loss = content_weight * content_loss + style_weight * style_loss
+        tv_loss = total_variation_loss(generated)
+        # total_loss = content_weight * content_loss + style_weight * style_loss
+        total_loss = (
+                content_weight * content_loss
+                + style_weight * style_loss
+                + tv_weight * tv_loss
+        )
 
         optimizer.zero_grad()
         total_loss.backward()
         optimizer.step()
 
+        # with torch.no_grad():
+        #     generated.clamp_(0, 1)
         with torch.no_grad():
-            generated.clamp_(0, 1)
+            generated.clamp_(-3, 3)
 
         if step % 50 == 0:
+            # print(
+            #     f"Step [{step}/300], "
+            #     f"Content Loss: {content_loss.item():.6f}, "
+            #     f"Style Loss: {style_loss.item():.6f}, "
+            #     f"Total Loss: {total_loss.item():.6f}"
+            # )
             print(
                 f"Step [{step}/300], "
                 f"Content Loss: {content_loss.item():.6f}, "
                 f"Style Loss: {style_loss.item():.6f}, "
+                f"TV Loss: {tv_loss.item():.6f}, "
                 f"Total Loss: {total_loss.item():.6f}"
             )
 
     save_image(generated, output_path)
     print(f"Stylized image saved to {output_path}")
+
+def total_variation_loss(image):
+    loss = torch.mean(torch.abs(image[:, :, :-1, :] - image[:, :, 1:, :])) + \
+           torch.mean(torch.abs(image[:, :, :, :-1] - image[:, :, :, 1:]))
+    return loss
 
 
 if __name__ == "__main__":
